@@ -1,27 +1,39 @@
-const rezScale = 30;
-const growScale = 10;
-const speed = 15; 
+/*
+function setup() {
+    var a = new Matrix (2, 3);
+    a.randomize();
+    console.table(a.matrix);
+    var b = new Matrix (2, 3);
+    b.randomize();
+    console.table(b.matrix);
+    var c = Matrix.mix(a,b, .9);
+    console.table(c.matrix);
+}
+*/
+
+const rezScale = 50;
+const growScale = 5;
+const allotted_time = 100
+let speed = 15; 
 const are_walls = true;
 const error_factor = 0.1;
-const two_players = false;
-const player2Color = "#324aa8";
-const player1Color = "#32a852";
 const numFood = 1;
+const pop_size = 1000;
+let stats = false;
+let show_one = false;
 
-let snake;
+let saved_snakes = [];
+let snakes = [];
 let foods = [];
 let w;
 let h;
 let is_paused;
 let high_score;
 let rez;
-
-let dToFood;
-let ButtonPressed;
-let dToLWall;
-let dToRWall;
-let dToUWall;
-let dToDWall;
+let buttonpushed;
+let generation;
+var timeLeft;
+let cycles;
 
 function setup() {
     var cnv = createCanvas(windowWidth - 50, windowHeight - 50);
@@ -30,208 +42,165 @@ function setup() {
     cnv.position(x, y);
     
     high_score = 0;
-    reset();
-}
-
-function reset() {
+    cycles = createSlider(1,100,.1);
+    generation = 1;
+    
+    for (let i = 0 ; i < pop_size; i++) {
+        snakes[i] = new Snake();
+    }
+    
+    //reset();
+    
+    timeLeft = allotted_time;
+    frameRate(speed);   
+    
     rez = width / rezScale;
     w = floor (width / rez);
     h = floor (height/ rez);
-    frameRate(speed);
-    snake = new Snake();
-    if (two_players) {
-        snake2 = new Snake();
-        snake2.setSnakeColor(player2Color);
-        snake.setSnakeColor(player1Color);
-    }
-    snake.walls(are_walls);
-    for (let i = 0; i < numFood; i++) {
-        foods[i] = foodLocation();
-    }
+    
     is_paused = false;
+
+}
+
+function reset() { 
+    normalizeFitness();
+    for (let i = 0; i < pop_size; i++) {
+        snakes[i] = createOne();
+    }
+    saved_snakes = [];
+    timeLeft = allotted_time;
+    frameRate(speed);
 }
 
 function foodLocation() {
     let x = floor(random(w));
     let y = floor(random(h));
-    while (validPos(x,y) == false) {
-      let x = floor(random(w));
-      let y = floor(random(h));
-    }
-  let food = createVector(x, y);
-  return food;
-    //rid food
-}
-
-function validPos (x,y) {
-    for (let i = 0; i < snake.length; i++) {
-        let part = snake.body[i];
-        if (part.x == x && part.y == y) {
-            return false;
-        }
-    }
-    if (two_players) {
-        for (let i = 0; i < snake2.length; i++) {
-            let part = snake2.body[i];
-            if (part.x == x && part.y == y) {
-                return false;
-            }
-        }
-    }
-    return true;
+    let food = createVector(x, y);
+    return food;
 }
 
 function keyPressed() {
-    if (key === "P" || key === "p" || key === " ") {
+    if (key === "P" || key === "p") {
         if (is_paused) {
             is_paused = false;
             loop();
         } else {
-            console.log("Len: " + snake.len);
             is_paused = true;
             noLoop();
         }
-    } else if (key === "r" || key === "R" || keyCode === 13) {
-        if (two_players == false) {
-            if (snake.len > high_score) {
-                high_score = snake.len;
-            }
-        }
+    } else if (key === "r" || key === "R" || key === " ") {
         reset();
         redraw();
         loop();
-    }
-    
-  if (keyCode === LEFT_ARROW) {
-    snake.setDir(-1, 0);
-      ButtonPressed = "<";
-  } else if (keyCode === RIGHT_ARROW) {
-    snake.setDir(1, 0);
-      ButtonPressed = ">";
-  } else if (keyCode === DOWN_ARROW) {
-    snake.setDir(0, 1);
-      ButtonPressed = "V";
-  } else if (keyCode === UP_ARROW) {
-    snake.setDir(0, -1);
-      ButtonPressed = "^";
-  }
-    
-    if(two_players) {
-        if (key == 'a' || key == 'A') {
-            snake2.setDir(-1, 0);
-        } else if (key == 'd' || key == 'D') {
-            snake2.setDir(1, 0);
-        } else if (key == 's' || key == 'S') {
-            snake2.setDir(0, 1);
-        } else if (key == 'w' || key == 'W') {
-            snake2.setDir(0, -1);
-        } 
-    } else {
-        if (key == 'a' || key == 'A') {
-            snake.setDir(-1, 0);
-        } else if (key == 'd' || key == 'D') {
-            snake.setDir(1, 0);
-        } else if (key == 's' || key == 'S') {
-            snake.setDir(0, 1);
-        } else if (key == 'w' || key == 'W') {
-            snake.setDir(0, -1);
-        } 
+        generation++;
+    } else if (key === "l" || key === "L") {
+        console.table(snakes[0].brain.wih.matrix);
+        console.table(snakes[1].brain.wih.matrix);
+        console.log (snakes[0].brain.wih.matrix.rows);
+        for (let i = 0; i < snakes[0].brain.wih.rows; i++) {
+            for (let j = 0; j < snakes[0].brain.wih.cols; j++) {
+                if (snakes[0].brain.wih.matrix[i][j] != snakes[1].brain.wih.matrix[i][j]) {
+                    console.log("Inequality at " + i + j);
+                } 
+            }
+        }
+    } else if (key === "o" || key === "O") {
+        if (show_one) {
+            show_one = false;
+        } else {
+            show_one = true;
+        }
+    } else if (key === "K" || key === "k") {
+        saved_snakes.push(snakes.splice(0, 1)[0]);
+    } else if (key === "S" || key === "s") {
+        let aSnake = snakes[0];
+        let json = JSON.stringify(aSnake.brain);
+        saveJSON(json, "saved_snake.json");
+    } else if (key === "W" || key === "w") {
+        //snakeBrain = loadJSON("*file name**")
     }
 }
 
 function draw() {
     background(220);
     
-    dToFood = dist(foods[0].x, foods[0].y, snake.headX, snake.headY); 
-    dToLWall = dist(snake.headX, snake.headY, 0, snake.headY);
-    dToRWall = dist(snake.headX, snake.headY, w, snake.headY);
-    dToUWall = dist(snake.headX, snake.headY, snake.headX, 0);
-    dToDWall = dist(snake.headX, snake.headY, snake.headX, h);
-    
-    
-    if (two_players) {
-        snake2.update(foods);
-        snake2.show();
-    } 
-    
-    snake.update(foods);
-    snake.show();
-    
-    //show food
-    noStroke();
-    fill(255, 0, 0);
-    for (let i = 0; i < foods.length; i++) {
-        let food = foods[i];
-        rect(rez*food.x, rez*food.y, rez, rez);
-    }
-    
-    //two player end game
-    if(two_players) {
-        if (snake.endGame2(snake2)) {
-            fill(player2Color);
-            textSize(64);
-            textAlign(CENTER);
-            text("Player 2 Wins", width/2, height/2);
-            noLoop();
-        } else if (snake2.endGame2(snake)) {
-            fill(player1Color);
-            textSize(64);
-            textAlign(CENTER);
-            text("Player 1 Wins", width/2, height/2);
-            noLoop();
+    stats = (cycles.value() > 1) ? false : true;
+    //FOR STATS
+    let localHigh = 0;
+    let local_longest_i = 0;
+    for (let q = 0; q < cycles.value(); q++) {
+        timeLeft -= 1;
+
+        for (let i = 0; i < snakes.length; i++) {
+            let asnake = snakes[i];
+
+            //FOR STATS {}
+                if (asnake.len > localHigh) {
+                    localHigh = asnake.len;
+                    if (localHigh > high_score) {
+                        high_score = localHigh;
+                    }
+                }
+                
+
+            //Actuallly necessary
+            //hit wall update and show
+            if (asnake.checkWall() || asnake.hitsSelf()) {
+                saved_snakes.push(snakes.splice(i, 1)[0]);
+                i--;
+            }
+            let is_0 = false;
+            if (i == 0) {
+                is_0 = true;
+            }
+            if (asnake.update(foods, is_0)) {
+                timeLeft = allotted_time;
+            }
+            asnake.score += 1;
         }
-        textSize(22);
-        fill(player1Color);
-        textAlign(LEFT);
-        if (snake.growingLeft > 0) {
-            text("Player 1 score: " + snake.len + "  +" + snake.growingLeft, 10, 20);
-        } else {
-            text("Player 1 score: " + snake.len, 10, 20);  
-        }
-        fill(player2Color);
-        if (snake2.growingLeft > 0) {
-            text("Plater 1 score: " + snake2.len + "  +" + snake2.growingLeft, 10, 40);
-        } else {
-            text("Player 1 score: " + snake2.len, 10, 40);  
-        }
-        
-    } else {
+
         //check/show end
-        if (snake.endGame1()) {
-            fill(255);
-            textSize(64);
-            textAlign(CENTER);
-            text("GAME OVER", width/2, height/2);
-            textSize(32);
-            text("Score: " + snake.len, width / 2, height / 2 + 25);
-            noLoop();
+        //check when there still some alive 
+        if (snakes.length < 1 || timeLeft < 1) {
+            if (timeLeft == 0) {
+                for (let i = 0; i < snakes.length; i++) {
+                    append(saved_snakes, snakes[i]);
+                }
+            }
+            reset();
+            generation++;
         }
-        
-        textSize(22);
-        textAlign(LEFT);
-        fill(0);
-        if (snake.growingLeft > 0) {
-            text("Score: " + snake.len + "  +" + snake.growingLeft, 10, 20);
-        } else {
-            text("Score: " + snake.len, 10, 20);  
-        }
-        if (high_score > 1) {
-            textAlign(RIGHT);
-            text("High Score: " + high_score, width - 10, 20);
-        }
-        
-        textAlign(LEFT);
-        fill(0);
-        text (" To L: " + dToLWall 
-              + " To R: " + dToRWall 
-              + " To U: " + dToUWall 
-              + " To D: " + dToDWall
-              + " To food: " + dToFood, 10, height - 20);
-        
-        textAlign(RIGHT);
-        text("Button: " + ButtonPressed, width - 30, height - 20);
     }
+    if (show_one) {
+        snakes[0].show();
+    } else {
+        for (let i = 0; i < snakes.length; i++) {
+            let asnake = snakes[i];
+            asnake.show();
+        }
+    }
+
+    //STATS
+    if (stats) {
+        textSize(22);
+        fill(255);
+        textAlign(LEFT);
+        text("Local High Score: " + localHigh, 10, 25);  
+        text("Snakes Alive: " + snakes.length, 10, height - 10);
+        text("Time left: " + timeLeft, width - 150, height - 10);
+        if (show_one) {
+            let arrow;
+            switch(buttonpushed) {
+                case 0: arrow = "<"; break;
+                case 1: arrow = "V"; break;
+                case 2: arrow = ">"; break;
+                case 3: arrow = "^"; break;
+            }
+            text("Button pushed: " + arrow, width - 200, height - 40);
+        }
+        textAlign(RIGHT);
+        text("High Score: " + high_score, width - 10, 25);
+        textAlign(CENTER);
+    }
+        text ("Generation: " + generation, height / 2, 25);
 }
-
-
-
