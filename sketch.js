@@ -1,7 +1,7 @@
 const rezScale = 30;
 const growScale = 10;
-const speed = 105; 
-const are_walls = false;
+const speed = 15; 
+const are_walls = true;
 const error_factor = 0.1;
 const two_players = false;
 const player2Color = "#324aa8";
@@ -91,7 +91,7 @@ function keyPressed() {
             is_paused = true;
             noLoop();
         }
-    } else if (key === "r" || key === "R") {
+    } else if (key === "r" || key === "R" || keyCode === 13) {
         if (two_players == false) {
             if (snake.len > high_score) {
                 high_score = snake.len;
@@ -101,7 +101,6 @@ function keyPressed() {
         redraw();
         loop();
     }
-    
     
   if (keyCode === LEFT_ARROW) {
     snake.setDir(-1, 0);
